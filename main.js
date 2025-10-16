@@ -138,6 +138,50 @@ app.delete('/channels/:id', async (req, res) => {
   res.json({ message: 'Channel supprimé avec succès' });
 });
 
+app.get('/channels/:id/messages', async (req, res) => {
+  try {
+    const channelId = Number(req.params.id);
+    if (Number.isNaN(channelId)) return res.status(400).json({ error: 'Invalid channel id' });
+
+    const messages = await prisma.message.findMany({
+      where: { channelId },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        sender: { select: { id: true, name: true, avatar: true } }
+      }
+    });
+
+    res.json(messages);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+// -------------------- ROUTES MESSAGE --------------------
+app.post('/messages', async (req, res) => {
+  try {
+    const { channelId, senderId, content, type } = req.body;
+    if (!channelId || !senderId || !content) {
+      return res.status(400).json({ error: 'channelId, senderId and content are required' });
+    }
+
+    const msg = await prisma.message.create({
+      data: {
+        channelId: Number(channelId),
+        senderId: Number(senderId),
+        content: String(content),
+        type: type ?? 'text'
+      },
+      include: {
+        sender: { select: { id: true, name: true, avatar: true } }
+      }
+    });
+
+    res.status(201).json(msg);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create message' });
+  }
+});
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
