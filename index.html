@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watsshap - Messagerie NoSQL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'whatsapp': {
+                            'green': '#25D366',
+                            'dark-green': '#128C7E',
+                            'light-green': '#DCF8C6',
+                            'blue': '#34B7F1',
+                            'gray': '#E5DDD5',
+                            'dark-gray': '#F0F0F0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .chat-bubble {
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .chat-bubble.sent {
+            background: linear-gradient(135deg, #DCF8C6 0%, #B8E6B8 100%);
+        }
+        .chat-bubble.received {
+            background: white;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .animate-pulse-slow {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .mobile-sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 100%;
+                z-index: 40;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            .mobile-sidebar.open {
+                transform: translateX(0);
+            }
+            .mobile-chat {
+                width: 100%;
+            }
+            .mobile-hidden {
+                display: none !important;
+            }
+            .mobile-visible {
+                display: block !important;
+            }
+            .chat-bubble {
+                max-width: 85%;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .desktop-only {
+                display: block !important;
+            }
+            .mobile-only {
+                display: none !important;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .chat-bubble {
+                max-width: 90%;
+            }
+            .modal-mobile {
+                margin: 1rem;
+                width: calc(100% - 2rem);
+            }
+        }
+    </style>
+</head>
+<body class="bg-whatsapp-gray h-screen overflow-hidden">
+    <!-- Header -->
+    <header class="bg-whatsapp-green text-white p-3 md:p-4 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <!-- Menu hamburger pour mobile -->
+                <button id="mobileMenuBtn" class="mobile-only md:hidden text-white hover:text-gray-200">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <i class="fas fa-comments text-xl md:text-2xl"></i>
+                <h1 class="text-lg md:text-xl font-bold">Watsshap</h1>
+            </div>
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <!-- Boutons desktop -->
+                <button id="newUserBtn" class="desktop-only bg-white text-whatsapp-green px-3 md:px-4 py-2 rounded-full hover:bg-gray-100 transition-colors text-sm md:text-base">
+                    <i class="fas fa-user-plus mr-1 md:mr-2"></i><span class="hidden sm:inline">Nouvel Utilisateur</span>
+                </button>
+                <button id="newChannelBtn" class="desktop-only bg-white text-whatsapp-green px-3 md:px-4 py-2 rounded-full hover:bg-gray-100 transition-colors text-sm md:text-base">
+                    <i class="fas fa-plus mr-1 md:mr-2"></i><span class="hidden sm:inline">Nouveau Channel</span>
+                </button>
+                
+                <!-- Boutons mobile (icônes seulement) -->
+                <button id="newUserBtnMobile" class="mobile-only text-white hover:text-gray-200 p-2">
+                    <i class="fas fa-user-plus text-lg"></i>
+                </button>
+                <button id="newChannelBtnMobile" class="mobile-only text-white hover:text-gray-200 p-2">
+                    <i class="fas fa-plus text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex h-full">
+        <!-- Overlay mobile -->
+        <div id="mobileOverlay" class="mobile-only fixed inset-0 bg-black bg-opacity-50 z-30 hidden"></div>
+        
+        <!-- Sidebar - Liste des utilisateurs et channels -->
+        <div id="sidebar" class="w-full md:w-1/3 bg-white border-r border-gray-200 flex flex-col mobile-sidebar desktop-only">
+            <!-- Header mobile avec bouton retour -->
+            <div class="mobile-only flex items-center justify-between p-4 border-b border-gray-200 bg-whatsapp-green text-white">
+                <h2 class="text-lg font-semibold">Menu</h2>
+                <button id="closeSidebarBtn" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Recherche -->
+            <div class="p-3 md:p-4 border-b border-gray-200">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Rechercher..." 
+                           class="w-full pl-8 md:pl-10 pr-4 py-2 md:py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    <i class="fas fa-search absolute left-2 md:left-3 top-2.5 md:top-3 text-gray-400 text-sm md:text-base"></i>
+                </div>
+            </div>
+
+            <!-- Onglets -->
+            <div class="flex border-b border-gray-200">
+                <button id="usersTab" class="flex-1 py-2 md:py-3 px-2 md:px-4 text-center font-medium text-whatsapp-green border-b-2 border-whatsapp-green text-sm md:text-base">
+                    Utilisateurs
+                </button>
+                <button id="channelsTab" class="flex-1 py-2 md:py-3 px-2 md:px-4 text-center font-medium text-gray-500 hover:text-whatsapp-green text-sm md:text-base">
+                    Channels
+                </button>
+            </div>
+
+            <!-- Liste des utilisateurs -->
+            <div id="usersList" class="flex-1 overflow-y-auto scrollbar-hide">
+                <!-- Les utilisateurs seront chargés ici -->
+            </div>
+
+            <!-- Liste des channels -->
+            <div id="channelsList" class="flex-1 overflow-y-auto scrollbar-hide hidden">
+                <!-- Les channels seront chargés ici -->
+            </div>
+        </div>
+
+        <!-- Zone de chat principale -->
+        <div id="chatArea" class="flex-1 flex flex-col mobile-chat">
+            <!-- Header du chat -->
+            <div id="chatHeader" class="bg-white border-b border-gray-200 p-3 md:p-4 hidden">
+                <div class="flex items-center space-x-3">
+                    <!-- Bouton retour mobile -->
+                    <button id="backToSidebarBtn" class="mobile-only text-gray-500 hover:text-gray-700 mr-2">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <div class="w-8 h-8 md:w-10 md:h-10 bg-whatsapp-green rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-white text-sm md:text-base"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 id="chatTitle" class="font-semibold text-gray-800 text-sm md:text-base truncate"></h3>
+                        <p id="chatSubtitle" class="text-xs md:text-sm text-gray-500 truncate"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zone de messages -->
+            <div id="messagesArea" class="flex-1 bg-whatsapp-gray p-2 md:p-4 overflow-y-auto scrollbar-hide">
+                <div id="welcomeMessage" class="flex items-center justify-center h-full text-center px-4">
+                    <div>
+                        <i class="fas fa-comments text-4xl md:text-6xl text-gray-300 mb-4"></i>
+                        <h2 class="text-lg md:text-2xl font-bold text-gray-400 mb-2">Bienvenue sur Watsshap</h2>
+                        <p class="text-sm md:text-base text-gray-500">Sélectionnez un utilisateur ou un channel pour commencer à discuter</p>
+                    </div>
+                </div>
+                <div id="messagesContainer" class="space-y-2 md:space-y-4 hidden">
+                    <!-- Les messages seront affichés ici -->
+                </div>
+            </div>
+
+            <!-- Zone de saisie -->
+            <div id="messageInputArea" class="bg-white border-t border-gray-200 p-3 md:p-4 hidden">
+                <div class="flex items-center space-x-2 md:space-x-3">
+                    <button class="text-gray-500 hover:text-whatsapp-green p-1 md:p-2">
+                        <i class="fas fa-paperclip text-lg md:text-xl"></i>
+                    </button>
+                    <div class="flex-1 relative">
+                        <input type="text" id="messageInput" placeholder="Tapez votre message..." 
+                               class="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                    <button id="sendMessageBtn" class="bg-whatsapp-green text-white p-2 md:p-3 rounded-full hover:bg-whatsapp-dark-green transition-colors">
+                        <i class="fas fa-paper-plane text-sm md:text-base"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nouvel Utilisateur -->
+    <div id="newUserModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 md:p-6 w-full max-w-md modal-mobile">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg md:text-xl font-semibold">Nouvel Utilisateur</h3>
+                <button id="closeUserModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-lg md:text-xl"></i>
+                </button>
+            </div>
+            <form id="newUserForm">
+                <div class="space-y-3 md:space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                        <input type="text" id="userName" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="userEmail" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                        <input type="tel" id="userPhone" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Avatar (URL)</label>
+                        <input type="url" id="userAvatar" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4 md:mt-6">
+                    <button type="button" id="cancelUserBtn" class="w-full sm:w-auto px-4 py-2 text-gray-600 hover:text-gray-800 text-sm md:text-base">
+                        Annuler
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-whatsapp-green text-white rounded-md hover:bg-whatsapp-dark-green transition-colors text-sm md:text-base">
+                        Créer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Nouveau Channel -->
+    <div id="newChannelModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 md:p-6 w-full max-w-md modal-mobile">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg md:text-xl font-semibold">Nouveau Channel</h3>
+                <button id="closeChannelModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-lg md:text-xl"></i>
+                </button>
+            </div>
+            <form id="newChannelForm">
+                <div class="space-y-3 md:space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nom du Channel</label>
+                        <input type="text" id="channelName" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-whatsapp-green text-sm md:text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Utilisateurs</label>
+                        <div id="usersCheckboxes" class="max-h-32 md:max-h-40 overflow-y-auto border border-gray-300 rounded-md p-2">
+                            <!-- Les checkboxes des utilisateurs seront générés ici -->
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4 md:mt-6">
+                    <button type="button" id="cancelChannelBtn" class="w-full sm:w-auto px-4 py-2 text-gray-600 hover:text-gray-800 text-sm md:text-base">
+                        Annuler
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto px-4 py-2 bg-whatsapp-green text-white rounded-md hover:bg-whatsapp-dark-green transition-colors text-sm md:text-base">
+                        Créer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Section En Savoir Plus -->
+    <div id="aboutSection" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Pourquoi NoSQL pour Watsshap ?</h2>
+                <button id="closeAboutBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Argument 1: Performance -->
+                <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-whatsapp-green rounded-full flex items-center justify-center mr-4">
+                            <i class="fas fa-bolt text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">Performance Optimale</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Dans une application comme WhatsApp, des <strong>milliers de messages</strong> sont envoyés chaque seconde. 
+                        MongoDB excelle dans la gestion des <strong>écritures rapides</strong> et des opérations en temps réel, 
+                        surpassant les bases SQL traditionnelles pour ce type de volume de données.
+                    </p>
+                    <div class="mt-4 flex items-center text-sm text-green-600">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Gestion optimale des gros volumes</span>
+                    </div>
+                </div>
+
+                <!-- Argument 2: Flexibilité -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-whatsapp-blue rounded-full flex items-center justify-center mr-4">
+                            <i class="fas fa-shapes text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">Structure Flexible</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Un message peut être du <strong>texte simple</strong>, une <strong>image</strong>, une <strong>vidéo</strong>, 
+                        des <strong>réactions</strong>, ou même des métadonnées complexes. Avec NoSQL, nous pouvons 
+                        <strong>adapter facilement</strong> la structure des données sans casser l'existant.
+                    </p>
+                    <div class="mt-4 flex items-center text-sm text-blue-600">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Évolution sans contraintes</span>
+                    </div>
+                </div>
+
+                <!-- Argument 3: Scalabilité -->
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mr-4">
+                            <i class="fas fa-expand-arrows-alt text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">Scalabilité Horizontale</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        Quand l'application grandit, MongoDB peut <strong>répartir automatiquement</strong> les données 
+                        sur plusieurs serveurs. Cette architecture permet de maintenir d'<strong>excellentes performances</strong> 
+                        même avec des millions d'utilisateurs simultanés.
+                    </p>
+                    <div class="mt-4 flex items-center text-sm text-purple-600">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Croissance illimitée</span>
+                    </div>
+                </div>
+
+                <!-- Argument 4: Intégration Node.js -->
+                <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center mr-4">
+                            <i class="fab fa-node-js text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">Intégration Native</h3>
+                    </div>
+                    <p class="text-gray-700 leading-relaxed">
+                        MongoDB utilise le format <strong>JSON natif</strong>, identique au JavaScript. 
+                        Cette compatibilité parfaite rend le développement <strong>plus simple</strong> et 
+                        <strong>plus intuitif</strong> dans l'écosystème Node.js.
+                    </p>
+                    <div class="mt-4 flex items-center text-sm text-orange-600">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Développement fluide</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section technique -->
+            <div class="mt-8 bg-gray-50 p-6 rounded-xl">
+                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-code text-whatsapp-green mr-3"></i>
+                    Architecture Technique
+                </h3>
+                <div class="grid md:grid-cols-3 gap-4 text-sm">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-whatsapp-green rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-database text-white text-xl"></i>
+                        </div>
+                        <h4 class="font-semibold text-gray-800">Base NoSQL</h4>
+                        <p class="text-gray-600">MongoDB pour la flexibilité</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-whatsapp-blue rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-server text-white text-xl"></i>
+                        </div>
+                        <h4 class="font-semibold text-gray-800">Backend Node.js</h4>
+                        <p class="text-gray-600">API REST avec Express</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-mobile-alt text-white text-xl"></i>
+                        </div>
+                        <h4 class="font-semibold text-gray-800">Frontend Responsive</h4>
+                        <p class="text-gray-600">Interface WhatsApp-like</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button id="closeAboutBtnBottom" class="px-6 py-3 bg-whatsapp-green text-white rounded-lg hover:bg-whatsapp-dark-green transition-colors font-semibold">
+                    <i class="fas fa-check mr-2"></i>Compris !
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bouton En Savoir Plus -->
+    <button id="aboutBtn" class="fixed bottom-6 right-6 bg-whatsapp-green text-white p-4 rounded-full shadow-lg hover:bg-whatsapp-dark-green transition-all duration-300 hover:scale-110 z-40">
+        <i class="fas fa-info-circle text-xl"></i>
+    </button>
+
+    <!-- Notifications -->
+    <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2">
+        <!-- Les notifications apparaîtront ici -->
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

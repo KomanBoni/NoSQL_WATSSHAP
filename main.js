@@ -6,13 +6,24 @@ const prisma = new PrismaClient()
 // Middleware pour parser le JSON
 app.use(express.json());
 
-// Servir les fichiers statiques du frontend
-app.use(express.static('watsshap-frontend/dist'));
+// Middleware CORS
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+    } else {
+        next();
+    }
+});
+
+// Servir les fichiers statiques
+app.use(express.static(__dirname));
 
 
 app.get('/', (req, res) => {
-    res.send('Hello World');
-    console.log(prisma.user.findMany());
+    res.sendFile(__dirname + '/index.html');
 });
 
 
