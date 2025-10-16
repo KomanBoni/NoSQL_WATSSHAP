@@ -14,13 +14,21 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  email     String?  @unique
-  phone     String?  @unique
-  avatar    String?
-  createdAt DateTime @default(now())
+model Channel {
+  id        Int       @id @default(autoincrement())
+  name      String
+  users     User[]    @relation("UserChannels")
+  createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
-  
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  name      String?
+  email     String?    @unique
+  phone     String?    @unique
+  avatar    String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime?  @updatedAt
+  channels  Channel[]  @relation("UserChannels")
 }
