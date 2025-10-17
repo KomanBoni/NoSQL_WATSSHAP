@@ -139,25 +139,27 @@ app.delete('/channels/:id', async (req, res) => {
 });
 
 app.get('/channels/:id/messages', async (req, res) => {
-  try {
     const channelId = Number(req.params.id);
     if (Number.isNaN(channelId)) return res.status(400).json({ error: 'Invalid channel id' });
 
     const messages = await prisma.message.findMany({
       where: { channelId },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        sender: { select: { id: true, name: true, avatar: true } }
-      }
+      orderBy: { createdAt: 'asc' }
     });
-
+    
     res.json(messages);
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch messages' });
-  }
 });
 
 // -------------------- ROUTES MESSAGE --------------------
+app.get('/messages', async(req,res) => {
+    const messages = await prisma.message
+    res.json(messages)
+})
+
+app.get('/messages/:id', async(req,res) => {
+    const message = await prisma.message.filter(message => message.id === req.params.id)
+    res.send(message)
+})
 app.post('/messages', async (req, res) => {
   try {
     const { channelId, senderId, content, type } = req.body;
@@ -173,7 +175,7 @@ app.post('/messages', async (req, res) => {
         type: type ?? 'text'
       },
       include: {
-        sender: { select: { id: true, name: true, avatar: true } }
+        sender: { select: { id: true, name: true} }
       }
     });
 
